@@ -1,0 +1,262 @@
+---
+title: "Discovering Stats with R - Chapter 5"
+author: "Alice Tivarovsky"
+date: "8/9/2020"
+output: html_document
+---
+## Setup
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(car)
+
+```
+
+## 5.5 Assumption of Normality
+
+First we need to fix the outlier from the Download festival dataset. 
+
+```{r}
+festival_data = read.delim("DownloadFestival.dat", header = TRUE)
+
+festival_data$day1 = replace(festival_data$day1, festival_data$day1 == 20.02, 2.02)
+
+```
+
+### Comparing to normal curve (histograms)
+
+Plotting histograms for each of the three days of the festival. 
+
+Day 1:
+
+```{r}
+hist_day1 = 
+  festival_data %>% 
+  ggplot(aes(day1)) + geom_histogram(aes(y = ..density..)) + 
+  labs(x = "Hygiene score on day 1", y = "Density")
+
+## Adding a normal to day1 curve using stat_function
+hist_day1 + stat_function(fun = dnorm, 
+                          args = list(mean = mean(festival_data$day1, na.rm = TRUE), 
+                                      sd = sd(festival_data$day1, na.rm = TRUE)))
+
+```
+
+Day 2: 
+
+```{r}
+hist_day2 = 
+  festival_data %>% 
+  ggplot(aes(day2)) + geom_histogram(aes(y = ..density..)) + 
+  labs(x = "Hygiene score on day 2", y = "Density") +
+  stat_function(fun = dnorm, 
+                args = list(mean = mean(festival_data$day2, na.rm = TRUE), 
+                            sd = sd(festival_data$day2, na.rm = TRUE)))
+
+```
+
+Day 3:
+
+```{r}
+hist_day3 = 
+  festival_data %>% 
+  ggplot(aes(day3)) + geom_histogram(aes(y = ..density..)) + 
+  labs(x = "Hygiene score on day 3", y = "Density") +
+  stat_function(fun = dnorm, 
+                args = list(mean = mean(festival_data$day3, na.rm = TRUE), 
+                            sd = sd(festival_data$day3, na.rm = TRUE)))
+
+```
+
+### Q-Q Plots
+
+Q-Q plots compare your data to the same quantiles in a perfect normal curve. 
+
+```{r}
+qqplot_day1 = qplot(sample = festival_data$day1)
+
+```
+
+### 5.5.2 Quantifying Normality with numbers
+
+```{r}
+# for one vector
+psych::describe(festival_data$day1)
+
+# more than one vector
+psych::describe(festival_data[, c("day1", "day2", "day3")])
+
+```
+### 5.5.3 Looking at groups of data
+
+#### The `by()` function 
+
+Looking at groups within a dataset requires us to use `by()` function. Here we load in a new dataset, `RExam`, which gives exam scores, computer literacy scores, % of lectures attended, and whether the student went to Sussex or another university. We will change the `uni` variable type to factor. 
+
+```{r}
+rexam = read.delim("RExam.dat", header = TRUE) %>%
+  mutate(uni = as.factor(uni)) %>% 
+  mutate(uni = recode(uni, "0" = "Duncetown", "1" = "Sussex"))
+  
+
+```
+
+Run histograms for exam, computer, and lectures. 
+
+```{r}
+hist_exam = 
+  rexam %>% 
+  ggplot(aes(exam)) +
+  geom_histogram(aes(y =..density..)) + 
+  stat_function(fun = dnorm, args = list(mean = mean(rexam$exam, na.rm = TRUE), sd = sd(rexam$exam, na.rm = TRUE)))
+
+hist_comp =
+  rexam %>% 
+  ggplot(aes(computer)) +
+  geom_histogram(aes(y = ..density..)) +
+  stat_function(fun = dnorm, args = list(mean = mean(rexam$computer, na.rm = TRUE), sd = sd(rexam$computer, na.rm = TRUE)))
+
+hist_lecture = 
+  rexam %>% 
+  ggplot(aes(lectures)) +
+  geom_histogram(aes(y = ..density..), binwidth = 5) + 
+  stat_function(fun = dnorm, args = list(mean = mean(rexam$lectures, na.rm = TRUE), sd = sd(rexam$lectures, na.rm = TRUE)))
+
+hist_exam
+hist_comp
+hist_lecture
+
+psych::describe(rexam[, c("exam", "computer", "lectures")])
+
+```
+Using the `by()` function to split our analysis by those at Sussex and those at Duncetown. 
+```{r}
+by(data = rexam$exam, INDICES = rexam$uni, FUN = psych::describe)
+
+```
+
+You can also use `by()` with more than one variable. 
+```{r}
+by(data = rexam[, c("exam", "numeracy")], INDICES = rexam$uni, FUN = psych::describe)
+
+```
+
+#### Subsetting
+
+Another way to analyze groups is to use `subset()`
+```{r}
+dunce_data = subset(rexam, rexam$uni == "Duncetown")
+sussex_data = subset(rexam, rexam$uni == "Sussex")
+
+```
+
+Now we can create separate histograms for the subsets. 
+```{r}
+hist_dunce_data = 
+  dunce_data %>% 
+  ggplot(aes(computer)) + 
+  geom_histogram(aes(y = ..density..), binwidth = 2) +
+  stat_function(fun = dnorm, args = list(mean = mean(rexam$computer, na.rm = TRUE), sd = sd(rexam$computer, na.rm = TRUE)))
+
+hist_sussex_data = 
+  sussex_data %>% 
+  ggplot(aes(computer)) + 
+  geom_histogram(aes(y = ..density..), binwidth = 2) +
+  stat_function(fun = dnorm, args = list(mean = mean(rexam$computer, na.rm = TRUE), sd = sd(rexam$computer, na.rm = TRUE)))
+
+hist_dunce_data
+hist_sussex_data
+
+```
+## 5.6 Testing Normality
+
+### Shapiro Wilk Test
+Compares scores from our distribution with those of a normal distribution with the same mean and standard deviation. 
+
+```{r}
+shapiro.test(rexam$exam)
+
+```
+
+Can also be done on subsets:
+```{r}
+by(rexam$exam, INDICES = rexam$uni, FUN = shapiro.test)
+
+```
+
+## 5.7 Testing homogeneity of variance (Levene's Test)
+
+Levene's test = basically ANOVA across all categories. Null hypothesis is that variances across groups are equal --> so p-value < 0.05 means variances across groups are significantly different. 
+
+NOTE: `leveneTest()` function is part of the `car` library.
+
+```{r}
+leveneTest(rexam$exam, rexam$uni)
+```
+
+## 5.8 Correcting Problems in the Data
+
+### Dealing with outliers
+* Remove them
+* Transform them
+* Change the scores
+
+### `is.na()`
+```{r}
+festival_data$na_day_2 = is.na(festival_data$day2)
+
+sum(festival_data$na_day_2)
+
+```
+
+
+### `ifelse()`
+
+* ifelse(condition, what happens if TRUE, what happens if FALSE)
+* Good ifelse example with rowMeans and calculation of missing values
+
+```{r}
+# first get missingness indicator
+festival_data$missing = rowSums(cbind(is.na(festival_data$day1), 
+                                      is.na(festival_data$day2),
+                                      is.na(festival_data$day3)))
+
+# next calculate means across the three days, excluding missing values
+festival_data$meam_hygiene = ifelse(festival_data$missing < 2, NA, 
+                                    rowMeans(cbind(festival_data$day1,
+                                                   festival_data$day2, 
+                                                   festival_data$day3), 
+                                             na.rm = TRUE))
+festival_data
+
+```
+
+## Tasks
+
+Task 1
+```{r}
+chick_flick = read.delim("ChickFlick.dat", header = TRUE)
+
+# histogram
+chick_flick %>% 
+  ggplot(aes(arousal)) +
+  geom_histogram(aes(y = ..density..))
+
+#test for normality
+shapiro.test(chick_flick$arousal)
+
+# test for homogeneity of variance (Levene)
+leveneTest(chick_flick$arousal, group = chick_flick$film, center = median)
+```
+
+Task 2
+```{r}
+rexam$log_numeracy = log(rexam$numeracy)
+
+rexam %>% 
+  ggplot(aes(log_numeracy)) + 
+  geom_histogram(aes(y = ..density..), binwidth = 0.2)
+
+```
+

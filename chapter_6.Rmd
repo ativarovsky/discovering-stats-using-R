@@ -1,0 +1,188 @@
+---
+title: "Chapter 6 - Correlation"
+author: "Alice Tivarovsky"
+date: "8/23/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(polycor)
+library(boot)
+library(ggm)
+library(Hmisc)
+library(boot)
+
+```
+
+## 6.4: Data entry for correlation analysis
+
+```{r}
+adverts = c(5,4,4,6,8)
+packets = c(8,9,10,13,15)
+advert_data = data.frame(adverts, packets)
+
+advert_data %>% 
+  ggplot(aes(x = adverts, y = packets)) +
+  geom_point()
+
+cor(adverts, packets)
+```
+
+## 6.5 Bivariate Correlation
+
+3 functions in R for correlation: 
+* `cor()`:      [x]Pearson [x]Spearman []p-value  []CI [x]Multiple correlations
+* `cor.test()`: [x]Pearson [x]Spearman [x]p-value [x]CI []Multiple correlations
+* `rcorr()`:    [x]Pearson [x]Spearman [x]p-value []CI [x]Multiple correlations
+
+Basically, if you need a correlation matrix, you can't use `cor.test()`, but if you need CI's, it's your only option 
+
+
+## 6.5.4 Pearson's R
+
+Import Exam Anxiety dataset:
+```{r}
+exam_data = read.delim("Exam Anxiety.dat", header = TRUE)
+
+```
+
+Using `cor()`
+```{r}
+cor(exam_data[, c("Exam", "Anxiety", "Revise")])
+```
+
+Using `rcorr()`: Note that `rcorr()` requires library(HMisc) and data input type must be a matrix
+```{r}
+exam_matrix = as.matrix(exam_data[, c("Exam", "Anxiety", "Revise")])
+
+rcorr(exam_matrix)
+
+```
+
+Using `cor.test()` to get confidence intervals: Note that this also requires matrix input data. 
+
+```{r}
+cor.test(exam_data$Anxiety, exam_data$Exam)
+```
+
+## Using R^2 for Interpretation
+
+R^2 = Coefficient of determination = how much variability in one variable is explained by its linear relationship with the other
+
+
+## 6.5.5 Spearman's Correlation Coefficient
+
+Spearman's is used when Pearson's assumptions are violated and when data are in rank order. Use method = "spearman" as argument in `cor()` and `cor.test()`and type = "spearman" for `rcorr()`
+
+
+## 6.5.6 Kendall's Tau
+
+Used for non-parametric data with small sample sizes. Use method = kendall when you'd otherwise use method = spearman
+
+
+## 6.5.7 Bootstrapping correlations
+
+Bootstrapping is another method of dealing with small samples or non-parametric data. 
+```{r}
+liar_data = read.delim("The Biggest Liar.dat", header = TRUE)
+
+```
+
+`boot()` takes the general form: 
+object = boot(data, function, replications), where the function argument should be a function you write to indicate what you want to bootstrap (note that [i] refers to the particular bootstrap sample): 
+
+```{r}
+boot_tau = function(liar_data, i){
+  cor(liar_data$Position[i], liar_data$Creativity[i], use = "complete.obs", method = "kendall")
+}
+```
+
+Now we run the `boot()` using our bootstrap function above with 2000 samples
+```{r}
+boot_kendall = boot(liar_data, boot_tau, 2000)
+boot_kendall
+```
+
+The output here indicates that the Kendall correlation coefficient is -0.3. Not sure what the bias means. 
+
+Finally, you can calculate the confidence interval: 
+
+```{r}
+boot.ci(boot.out = boot_kendall)
+```
+
+## 6.5.8 Biserial and Point-biserial Calculations
+
+Biserial = discrete dichotomous (e.g. pregnant vs not)
+Point-biserial = Continuous dichotomy (e.g. passing or failing an exam, e.g. you can fail borderline or you can fail hard)
+
+Using cat data for Pearson correlation analysis. Cat data measures time cat spent away from home vs whether the cat is male or female. Cat gender might be point-biserial because some male cats are more aggressive (i.e. spend a lot more time going out to look for mates) while others are neutered and don't need to look for mates at all. 
+```{r}
+cat_data = read.csv("pbcorr.csv", header = TRUE)
+
+cor.test(cat_data$time, cat_data$gender, method = "pearson")
+
+```
+
+```{r}
+cor.test(cat_data$time, cat_data$gender)
+
+```
+ 
+For bi-serial, use either equation 6.9 (page 232), or just run `polyerial()` in the `polycor` package. 
+
+```{r}
+polyserial(cat_data$time, cat_data$gender)
+
+```
+
+## 6.6 Partial Correlations
+
+You can calculate the correlation between two variables while removing the effect of a third variable (see fig 6.8). Use `pcor()` function, where first two variables are the variables of interest and third variable is the one you want to control for. 
+
+```{r}
+exam_data = read.delim("Exam Anxiety.dat", header = TRUE)
+exam_data2 = exam_data[, c("Exam", "Anxiety", "Revise")]
+
+pc = pcor(c("Exam", "Anxiety", "Revise"), var(exam_data2))
+
+```
+
+## End of Chapter Tasks
+
+Task 1
+```{r}
+essay_data = read.delim("EssayMarks.dat", header = TRUE)
+
+essay_data %>% 
+  ggplot(aes(x = hours, y = essay)) + 
+  geom_point()
+
+# check for normality
+shapiro.test(essay_data$hours)
+shapiro.test(essay_data$essay)
+
+# both are normal so proceed with correlation
+cor.test(essay_data$hours, essay_data$essay)
+
+# grade is a categorical ordinal (i.e. factor) variable, so we can't use Pearson's --> use Spearman or Kendall
+essay_data_2 = 
+  essay_data %>% 
+  mutate(grade = recode(grade, "First Class" = 1, "Upper Second Class" = 2, "Lower Second Class" = 3, "Third Class" = 4, "Pass" = 5, "Fail" = 6))
+
+cor.test(essay_data_2$hours, essay_data_2$grade, alternative = "less", method = "spearman")
+
+```
+
+Task 2:
+```{r}
+chick_flick = read.delim("ChickFlick.dat", header = TRUE)
+
+# Point bi-serial correlation
+cor.test(chick_flick$arousal, chick_flick$gender, method = "pearson")
+
+```
+

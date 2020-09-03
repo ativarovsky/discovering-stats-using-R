@@ -1,0 +1,17 @@
+---
+title: "DSR Chapter 7"
+author: "Alice Tivarovsky"
+date: "9/2/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 7.4 General Procedure for regression
+```{r import}
+album1 = read.delim("AlbumSales1.dat", header = TRUE)
+
+```
+
