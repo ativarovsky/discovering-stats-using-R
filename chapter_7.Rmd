@@ -7,11 +7,65 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
 ```
 
 ## 7.4 General Procedure for regression
 ```{r import}
-album1 = read.delim("AlbumSales1.dat", header = TRUE)
+album1 = read.delim("./data/AlbumSales1.dat", header = TRUE)
 
 ```
 
+```{r}
+album_sales = lm(sales ~ adverts, data = album1, na.action = na.exclude())
+album_sales
+
+summary(album_sales)
+```
+
+## 7.8 Multiple Regression 
+
+```{r}
+album2 = read.delim("./data/Album Sales 2.dat", header = TRUE)
+
+```
+
+Simple model + multivariable model for album sales: 
+```{r}
+album_sales2 = lm(sales ~ adverts, data = album2)
+
+album_sales3 = lm(sales ~ adverts + airplay + attract, data = album2)
+
+```
+
+Potentially useful shortcut to add predictors to a model you already computed: 
+```{r}
+album_sales3 = update(album_sales2, .~. + airplay + attract, data = album2)
+```
+
+Model summaries: 
+```{r}
+summary(album_sales2)
+summary(album_sales3)
+
+```
+
+R^2 for simple model = 0.3346
+R^2 for multivariable model = 0.6647
+
+To get standardized beta coefficients, use `lm.beta` in the `QuantPsyc` package (didn't bother with it here). 
+
+To get confidence intervals around the betas: 
+```{r}
+confint(album_sales3)
+```
+
+### 7.8.4 Comparing Models
+
+Here we compare `album_sale2` to `album_sales3` using a Partial F test (analogous to ANOVA): 
+```{r}
+anova(album_sales2, album_sales3)
+
+```
+
+F-statistic = 96.447, p-value < 2.2e-16 (highly significant), meaning model with `airplay` and `attract` is much better. 
