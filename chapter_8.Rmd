@@ -1,0 +1,90 @@
+---
+title: "Chapter 7 - Logistic Regression"
+author: "Alice Tivarovsky"
+date: "1/15/2021"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(car)
+library(mlogit)
+
+```
+
+## 8.6 Import eel data
+
+```{r}
+setwd('/Users/AliceTivarovsky/Documents/Post MPH Self Study/Discovering Stats with R/data')
+eel_data = read.delim("eel.dat", header = TRUE)
+head(eel_data)
+
+```
+Now we want to relevel so that the baseline categories are 'Not Cured' and 'No Treatment'
+```{r}
+eel_data$Cured = relevel(eel_data$Cured, "Not Cured")
+eel_data$Intervention = relevel(eel_data$Intervention, "No Treatment")
+
+```
+
+
+## 8.6: Computing the Model
+
+We will run two models, the first with only Intervention: 
+```{r}
+eel_model_1 = glm(Cured ~ Intervention, data = eel_data, family = binomial())
+
+summary(eel_model_1)
+
+```
+To gauge model fit, look at model deviance (deviance = -2*log likelihood). In `eel_model_1`, the model with Intervention has a lower deviance than the model without it, meaning it's better than the null model. The overall fit statistic should be the difference between the model deviance and the null deviance, which follows a chi-square distribution. R doesn't give an automatic way to do this, so we have to run a null model: 
+```{r}
+eel_model_0 = glm(Cured ~ 1, data  =eel_data, family = binomial())
+summary(eel_model_0)
+
+```
+
+Figure out difference: 
+```{r}
+model_chi = eel_model_1$null.deviance - eel_model_1$deviance
+model_chi
+
+```
+
+Now, to find the associated p-value with the delta deviance, use the `pchisq` function. The second argument is the degrees of freedom (we're only testing one parameter here so df = 1): 
+```{r}
+p_chisq = 1 - pchisq(model_chi, 1)
+p_chisq
+
+```
+p-value of chi-square is statistically significant, so `eel_model_1` is better than a null model. 
+
+Second model - include intervention & duration as predictors: 
+```{r}
+eel_model_2 = glm(Cured ~ Intervention + Duration, data = eel_data, family = binomial())
+
+summary(eel_model_2)
+
+```
+
+### 8.6.7 Casewise diagnostics 
+
+Handy diagnostic functions: 
+```{r}
+write.table(eel_data, "Eel with diagnostics.dat", sep = "/t", row.names = FALSE)
+eel_data$predicted.probabilities = fitted(eel_model_1)
+eel_data$standardized.residuals = rstandard(eel_model_1)
+eel_data$studentized.residuasl = rstudent(eel_model_1)
+eel_data$dfbeta = dfbeta(eel_model_1)
+eel_data$dffit = dffits(eel_model_1)
+eel_data$leverage = hatvalues(eel_model_1)
+
+```
+
+## 8.8 Testing Assumptions
+```{r}
+penalty_data = read.delim("penalty.dat", header = TRUE)
+
+```
+

@@ -5,9 +5,13 @@ date: "9/2/2020"
 output: html_document
 ---
 
+_Additional reference used: http://www.sthda.com/english/articles/39-regression-model-diagnostics/161-linear-regression-assumptions-and-diagnostics-in-r-essentials/_
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
+library(tidyverse)
+library(broom)
 ```
 
 ## 7.4 General Procedure for regression
@@ -17,7 +21,7 @@ album1 = read.delim("./data/AlbumSales1.dat", header = TRUE)
 ```
 
 ```{r}
-album_sales = lm(sales ~ adverts, data = album1, na.action = na.exclude())
+album_sales = lm(sales ~ adverts, data = album1)
 album_sales
 
 summary(album_sales)
@@ -69,3 +73,47 @@ anova(album_sales2, album_sales3)
 ```
 
 F-statistic = 96.447, p-value < 2.2e-16 (highly significant), meaning model with `airplay` and `attract` is much better. 
+
+## Regression Diagnostics
+
+Use `broom` package for regression diagnostics: 
+```{r}
+album_sales3_diagnostics = augment(album_sales3)
+
+```
+
+Make a plot:
+```{r}
+album_sales3_diagnostics %>% 
+  ggplot(aes(x = adverts, y = sales)) + 
+  geom_point() + 
+  stat_smooth(method = lm, se = FALSE) +
+  geom_segment(aes(xend = adverts, yend = .fitted))
+
+```
+Not sure why the residuals aren't plotting correctly. 
+
+Summary of diagnostics: 
+```{r}
+broom::glance(album_sales3)
+```
+
+### 7.9.2 Outliers and Influential cases
+
+Outliers: residuals, standardized residuals, and studentized residuals
+```{r}
+resid_3 = resid(album_sales3)
+std_resid_3 = rstandard(album_sales3)
+stud_resid_3 = rstudent(album_sales3)
+
+# combine into a dataframe: 
+diag_df = tibble(residual = resid_3, std_residual = std_resid_3, student_resid = stud_resid_3)
+
+```
+
+Plotting diagnostics: 
+```{r}
+plot(album_sales3)
+
+```
+
